@@ -1,8 +1,16 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Cpu, Bot, User, Sparkles } from "lucide-react";
+import { Send, Cpu, Bot, User, Sparkles, Wand2, Download, Zap, FileJson, Baby, GraduationCap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { enhancePrompt, IDE_OPTIONS, type TargetIDE, generateRuleFileContent } from "@/lib/promptEnhancer";
+
+const QUICK_ACTIONS = [
+    { label: "🕵️ Find Bugs", prompt: "Analyze the codebase for potential bugs and security vulnerabilities." },
+    { label: "📝 Generate README", prompt: "Create a comprehensive README.md for this project." },
+    { label: "🎨 UI Improvements", prompt: "Suggest UI/UX improvements based on the current design." },
+    { label: "🚀 How to Run", prompt: "Explain step-by-step how to run this project locally." }
+];
 
 export const NeuralChat = ({
     messages,
@@ -16,6 +24,8 @@ export const NeuralChat = ({
     status: string;
 }) => {
     const [input, setInput] = useState("");
+    const [selectedIDE, setSelectedIDE] = useState<TargetIDE>('Generic');
+    const [isBeginnerMode, setIsBeginnerMode] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -26,8 +36,49 @@ export const NeuralChat = ({
 
     const handleSend = () => {
         if (!input.trim()) return;
-        onSendMessage(input);
+
+        let finalMessage = input;
+        if (isBeginnerMode) {
+            finalMessage += "\n\n[SYSTEM INSTRUCTION: Explain this simply, using analogies and avoiding technical jargon where possible. Assume the user is a beginner.]";
+        }
+
+        onSendMessage(finalMessage);
         setInput("");
+    };
+
+    const handleEnhance = () => {
+        if (!input.trim()) return;
+        const enhanced = enhancePrompt(input, selectedIDE);
+        setInput(enhanced);
+    };
+
+    const handleQuickAction = (prompt: string) => {
+        setInput(prompt);
+    };
+
+    const handleDownloadContext = async () => {
+        try {
+            const element = document.createElement("a");
+            const file = new Blob(["<!-- ContextCode XML Content would be here -->\n<root>...</root>"], { type: 'text/xml' });
+            element.href = URL.createObjectURL(file);
+            element.download = "contextcode.xml";
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        } catch (error) {
+            console.error("Download failed", error);
+        }
+    };
+
+    const handleExportRules = () => {
+        const { filename, content } = generateRuleFileContent(selectedIDE, "Project Context Summary Placeholder");
+        const element = document.createElement("a");
+        const file = new Blob([content], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = filename;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
     };
 
     return (
@@ -49,7 +100,26 @@ export const NeuralChat = ({
                         <p className="text-[10px] text-cyan-400 font-mono">SECURE CONNECTION ESTABLISHED</p>
                     </div>
                 </div>
-                <Cpu className="w-5 h-5 text-white/20" />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsBeginnerMode(!isBeginnerMode)}
+                        className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            isBeginnerMode ? "bg-pink-500/20 text-pink-400" : "hover:bg-white/10 text-gray-400"
+                        )}
+                        title={isBeginnerMode ? "Beginner Mode: ON" : "Beginner Mode: OFF"}
+                    >
+                        {isBeginnerMode ? <Baby className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
+                    </button>
+                    <button
+                        onClick={handleDownloadContext}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-cyan-400"
+                        title="Download Context XML"
+                    >
+                        <Download className="w-4 h-4" />
+                    </button>
+                    <Cpu className="w-5 h-5 text-white/20" />
+                </div>
             </div>
 
             {/* Messages Area */}
@@ -62,6 +132,20 @@ export const NeuralChat = ({
                         <div className="space-y-1">
                             <p className="text-sm font-mono text-cyan-200">SYSTEM READY</p>
                             <p className="text-xs text-gray-400 max-w-[200px]">Awaiting input to analyze architectural patterns.</p>
+                        </div>
+
+                        {/* Quick Actions Grid */}
+                        <div className="grid grid-cols-2 gap-2 mt-4 w-full max-w-xs">
+                            {QUICK_ACTIONS.map((action, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleQuickAction(action.prompt)}
+                                    className="flex items-center gap-2 p-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-left transition-all group"
+                                >
+                                    <span className="text-lg">{action.label.split(' ')[0]}</span>
+                                    <span className="text-gray-300 group-hover:text-white">{action.label.split(' ').slice(1).join(' ')}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -120,6 +204,44 @@ export const NeuralChat = ({
                         </div>
                     </motion.div>
                 )}
+            </div>
+
+            {/* Prompt Enhancer Toolbar */}
+            <div className="px-4 py-2 bg-black/30 border-t border-white/5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">Target IDE:</span>
+                    <select
+                        value={selectedIDE}
+                        onChange={(e) => setSelectedIDE(e.target.value as TargetIDE)}
+                        className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-cyan-300 font-mono focus:outline-none focus:border-cyan-500/50"
+                    >
+                        {IDE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt} className="bg-gray-900 text-white">
+                                {opt}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleExportRules}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 border border-white/10 text-gray-300 text-xs font-mono hover:bg-white/10 transition-all"
+                        title={`Export ${selectedIDE} Rules`}
+                    >
+                        <FileJson className="w-3 h-3" />
+                        <span className="hidden sm:inline">EXPORT RULES</span>
+                    </button>
+
+                    <button
+                        onClick={handleEnhance}
+                        disabled={!input.trim()}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-mono hover:bg-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                        <Wand2 className="w-3 h-3" />
+                        <span>ENHANCE</span>
+                    </button>
+                </div>
             </div>
 
             {/* Input Area */}

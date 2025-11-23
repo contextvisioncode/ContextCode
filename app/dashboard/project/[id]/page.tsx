@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import ReactFlow, {
     Background,
     Controls,
     useNodesState,
     useEdgesState,
+    Node
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Code2 } from "lucide-react";
+import { Code2, X, FileCode, Activity } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SystemBoot } from "@/components/dashboard/SystemBoot";
 import { AuroraBackground } from "@/components/ui/AuroraBackground";
@@ -16,6 +17,7 @@ import { ProjectDNA } from "@/components/dashboard/ProjectDNA";
 import { NeuralChat } from "@/components/dashboard/NeuralChat";
 import { IntelligenceBriefing } from "@/components/dashboard/IntelligenceBriefing";
 import { TacticalGrid } from "@/components/dashboard/TacticalGrid";
+import { motion, AnimatePresence } from "framer-motion";
 
 // --- Types ---
 type Message = {
@@ -35,6 +37,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [summary, setSummary] = useState<string | null>(null);
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
     const [isGraphMode, setIsGraphMode] = useState(false);
+    const [selectedNode, setSelectedNode] = useState<Node | null>(null);
 
     // React Flow State
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -152,6 +155,10 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         sendMessageToChat(prompt, false);
     };
 
+    const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+        setSelectedNode(node);
+    }, []);
+
     if (showBoot) {
         return <SystemBoot onComplete={() => setShowBoot(false)} />;
     }
@@ -167,6 +174,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                         edges={edges}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
+                        onNodeClick={onNodeClick}
                         fitView
                         className="bg-transparent"
                         minZoom={0.1}
@@ -187,6 +195,65 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             </button>
                         </div>
                     )}
+
+                    {/* Node Details Modal */}
+                    <AnimatePresence>
+                        {selectedNode && (
+                            <motion.div
+                                initial={{ x: 300, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                exit={{ x: 300, opacity: 0 }}
+                                className="absolute top-4 right-4 bottom-4 w-80 bg-slate-900/95 backdrop-blur-xl border border-indigo-500/30 rounded-xl p-6 z-50 shadow-2xl overflow-y-auto"
+                            >
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center gap-2 text-indigo-400">
+                                        <FileCode className="w-5 h-5" />
+                                        <span className="font-mono font-bold text-sm">TECH SHEET</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedNode(null)}
+                                        className="text-gray-400 hover:text-white transition-colors"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-[10px] uppercase tracking-widest text-gray-500 font-mono">Component Name</label>
+                                        <h3 className="text-xl font-bold text-white mt-1">{selectedNode.data.label}</h3>
+                                    </div>
+
+                                    <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+                                        <div className="flex items-center gap-2 text-indigo-300 mb-2">
+                                            <Activity className="w-4 h-4" />
+                                            <span className="text-xs font-bold uppercase">AI Analysis</span>
+                                        </div>
+                                        <p className="text-xs text-gray-300 leading-relaxed">
+                                            This component appears to be a critical part of the system architecture.
+                                            Based on its connections, it likely handles data flow between
+                                            {edges.filter(e => e.source === selectedNode.id).length} downstream nodes and
+                                            {edges.filter(e => e.target === selectedNode.id).length} upstream dependencies.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-[10px] uppercase tracking-widest text-gray-500 font-mono">Metrics</label>
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            <div className="bg-slate-800 p-2 rounded border border-slate-700">
+                                                <div className="text-[10px] text-gray-400">Complexity</div>
+                                                <div className="text-sm font-mono text-yellow-400">MEDIUM</div>
+                                            </div>
+                                            <div className="bg-slate-800 p-2 rounded border border-slate-700">
+                                                <div className="text-[10px] text-gray-400">Type</div>
+                                                <div className="text-sm font-mono text-cyan-400">{selectedNode.type || 'Default'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Layer 1: Mission Control Interface */}

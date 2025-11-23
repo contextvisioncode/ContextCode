@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
-import { FileText, RefreshCw } from "lucide-react";
+import { FileText, RefreshCw, Zap } from "lucide-react";
+import { HackerTerminal } from "./HackerTerminal";
 
 export const IntelligenceBriefing = ({
     summary,
@@ -11,6 +12,17 @@ export const IntelligenceBriefing = ({
     onGenerate: () => void;
     isGenerating: boolean;
 }) => {
+    // Mock context size calculation (in a real app, this would come from the backend)
+    const contextSize = summary ? summary.length * 4 : 0; // Rough token estimate
+    const maxContext = 128000; // 128k context window
+    const healthPercentage = Math.min((contextSize / maxContext) * 100, 100);
+
+    const getHealthColor = (p: number) => {
+        if (p < 30) return "bg-green-500";
+        if (p < 70) return "bg-yellow-500";
+        return "bg-red-500";
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -35,8 +47,31 @@ export const IntelligenceBriefing = ({
                 </button>
             </div>
 
+            {/* Context Health Meter */}
+            {summary && !isGenerating && (
+                <div className="mb-4 bg-black/20 rounded-lg p-3 border border-white/5">
+                    <div className="flex items-center justify-between mb-2 text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+                        <div className="flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-yellow-500" />
+                            <span>Context Load</span>
+                        </div>
+                        <span>{Math.round(healthPercentage)}% ({contextSize.toLocaleString()} tokens)</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${healthPercentage}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                            className={`h-full rounded-full ${getHealthColor(healthPercentage)}`}
+                        />
+                    </div>
+                </div>
+            )}
+
             <div className="min-h-[100px] text-sm text-gray-300 leading-relaxed font-mono">
-                {summary ? (
+                {isGenerating ? (
+                    <HackerTerminal />
+                ) : summary ? (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
